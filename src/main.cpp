@@ -70,11 +70,11 @@ void setup() {
   tft.drawString("OK", 200, 170);
   tft.setTextColor(TFT_WHITE,TFT_BLACK);
   tft.drawString("MPU6050...", 20, 190);
+  mpu6050.begin();
   delay(300);
   tft.setTextColor(TFT_GREEN,TFT_BLACK);
   tft.drawString("OK", 200, 190);
   tft.setTextColor(TFT_WHITE,TFT_BLACK);
-  mpu6050.begin();
   delay(1000);
   tft.fillScreen(TFT_BLACK);
 
