@@ -9,7 +9,8 @@
 
 // DEFINITIONS ////////////////////////
 #define SERIAL_BAUD 115200
-#define SAMPLES 100
+#define SAMPLES 80
+void loop1();
 
 // GLOBAL VARS ////////////////////////
 TFT_eSPI tft = TFT_eSPI();
@@ -19,9 +20,10 @@ LSM303 compass;
 LSM303::vector<int16_t> running_min = {32767, 32767, 32767}, running_max = {-32768, -32768, -32768};
 
 int temp=0, humidity=0, g=1, heading=0; // temp x 10. Divide by 10 to get correct value, g x 10
-const char* dirs[] = {"N", "NW", "W", "SW", "S", "SE", "E", "NE"};
+const char* dirs[] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
 float gX, gY, gZ;
-long timer1 = 0, timer2 = 250, timer3 = 600;
+float gYOff=0, gZOff=0;
+long timer1 = 0, timer2 = 250, timer3 = 10100;
 float histX[SAMPLES], histY[SAMPLES], histZ[SAMPLES];
 char str[40];
 char report[80];
@@ -98,6 +100,8 @@ void setup() {
   // Compass
   tft.fillRect(0,60,320,30, TFT_ORANGE);
   tft.fillRect(158,85,4,20,TFT_RED);
+  
+  // multicore_launch_core1(loop1);
 }
 
 // FUNCTIONS //////////////////////////
@@ -148,9 +152,9 @@ void updateHeading(int newHeading) {
     tft.setTextColor(TFT_BLACK, TFT_ORANGE);
     heading = newHeading;//(newHeading-heading)/abs((newHeading-heading)); // increment by one degree at a time
     for (int i=0; i<8; i++) {
-      tft.drawString(dirs[i], 150+800*heading/360+i*100, 63);
-      tft.drawString(dirs[i], 150-800+800*heading/360+i*100, 63);
-      tft.drawString(dirs[i], 150-1600+800*heading/360+i*100, 63);
+      tft.drawString(dirs[i], 150-800*heading/360+i*100, 63);
+      tft.drawString(dirs[i], 150-800-800*heading/360+i*100, 63);
+      // tft.drawString(dirs[i], 150-1600-800*heading/360+i*100, 63);
     }
   }
 }
@@ -160,21 +164,30 @@ void loop() {
   mpu6050.update();
   
   if(millis() - timer1 > 10) {
-       
-    gX = mpu6050.getAccX();
+    tft.fillCircle(40+(gY-gYOff)*20,170-(gZ-gZOff)*20,3,TFT_BLACK);
+    tft.drawCircle(40,170,10,TFT_DARKGREY);
+    tft.drawCircle(40,170,25,TFT_DARKGREY);
+    tft.drawCircle(40,170,40,TFT_DARKGREY);
+    // X axis is the vertical 
+    // Y axis is lateral
+    // Z axis is longitudinal
+    gX = mpu6050.getAccX()-1; // offsetting for vertical g
     gY = mpu6050.getAccY();
     gZ = mpu6050.getAccZ();
-    
+    tft.fillCircle(40+(gY-gYOff)*20,170-(gZ-gZOff)*20,3,TFT_RED);
+
     for(int i=0; i<SAMPLES-2; i++) {
-      tft.drawLine(10+i*3, 120-histX[i]*20, 10+(i+1)*3, 120-histX[i+1]*20, TFT_BLACK);
-      tft.drawLine(10+i*3, 170-histY[i]*20, 10+(i+1)*3, 170-histY[i+1]*20, TFT_BLACK);
-      tft.drawLine(10+i*3, 220-histZ[i]*20, 10+(i+1)*3, 220-histZ[i+1]*20, TFT_BLACK);
+      // draw over previous lines
+      tft.drawLine(90+i*3, 120-histX[i]*20, 90+(i+1)*3, 120-histX[i+1]*20, TFT_BLACK);
+      tft.drawLine(90+i*3, 170-histY[i]*20, 90+(i+1)*3, 170-histY[i+1]*20, TFT_BLACK);
+      tft.drawLine(90+i*3, 220-histZ[i]*20, 90+(i+1)*3, 220-histZ[i+1]*20, TFT_BLACK);
       histX[i] = histX[i+1];
       histY[i] = histY[i+1];
       histZ[i] = histZ[i+1];
-      tft.drawLine(10+i*3, 120-histX[i]*20, 10+(i+1)*3, 120-histX[i+2]*20, TFT_WHITE);
-      tft.drawLine(10+i*3, 170-histY[i]*20, 10+(i+1)*3, 170-histY[i+2]*20, TFT_GREEN);
-      tft.drawLine(10+i*3, 220-histZ[i]*20, 10+(i+1)*3, 220-histZ[i+2]*20, TFT_ORANGE);
+      // draw new lines
+      tft.drawLine(90+i*3, 120-histX[i]*20, 90+(i+1)*3, 120-histX[i+2]*20, TFT_WHITE);
+      tft.drawLine(90+i*3, 170-histY[i]*20, 90+(i+1)*3, 170-histY[i+2]*20, TFT_GREEN);
+      tft.drawLine(90+i*3, 220-histZ[i]*20, 90+(i+1)*3, 220-histZ[i+2]*20, TFT_ORANGE);
     }
 
     histX[SAMPLES-2] = histX[SAMPLES-1];
@@ -187,18 +200,30 @@ void loop() {
   }
 
   if(millis() - timer2 > 100) {
-    updateG(abs(sqrt(gX*gX+gY*gY+gZ*gZ)*10 - 10));
+    updateG(abs(sqrt((gX+1)*(gX+1)+gY*gY+gZ*gZ)*10 - 10));
     compass.read();
     updateHeading(compass.heading((LSM303::vector<int>){1, 0, 0}));
-    Serial.println(heading);
+    // Serial.println(heading);
     timer2 = millis()-50;
   }
 
   if(millis() - timer3 > 1050) {
-    updateTemp(aht10.readTemperature()*10);                 // get new temperature
-    updateHumidity(aht10.readHumidity()*10);                 // get new humidity
-    // snprintf(report, sizeof(report), "A: %6d %6d %6d    M: %6d %6d %6d", compass.a.x/160, compass.a.y/160, compass.a.z/160, compass.m.x, compass.m.y, compass.m.z);
-    // Serial.println(report);
-    timer3 = millis()-90;
-  }
+      updateTemp(aht10.readTemperature()*10);                 // get new temperature
+      updateHumidity(aht10.readHumidity()*10);                 // get new humidity
+      // snprintf(report, sizeof(report), "A: %6d %6d %6d    M: %6d %6d %6d", compass.a.x/160, compass.a.y/160, compass.a.z/160, compass.m.x, compass.m.y, compass.m.z);
+      // Serial.println(report);
+      timer3 = millis()-90;
+      // find offsets for the gY and gZ so that the red circle is always centred even if the board is not perfectly level with the ground.
+      bool redraw=false;
+      if (histY[1]-(gYOff)<0 && histY[20]-(gYOff)<0 && histY[40]-(gYOff)<0 && histY[60]-(gYOff)<0) {gYOff-=0.1; redraw=true;}
+      if (histY[1]-(gYOff)>0 && histY[20]-(gYOff)>0 && histY[40]-(gYOff)>0 && histY[60]-(gYOff)>0) {gYOff+=0.1; redraw=true;}
+      if (histZ[1]-(gZOff)<0 && histZ[20]-(gZOff)<0 && histZ[40]-(gZOff)<0 && histZ[60]-(gZOff)<0) {gZOff-=0.1; redraw=true;}
+      if (histZ[1]-(gZOff)>0 && histZ[20]-(gZOff)>0 && histZ[40]-(gZOff)>0 && histZ[60]-(gZOff)>0) {gZOff+=0.1; redraw=true;}
+      if (redraw) {
+        tft.fillCircle(40,170,40,TFT_BLACK);
+        tft.drawCircle(40,170,10,TFT_DARKGREY);
+        tft.drawCircle(40,170,25,TFT_DARKGREY);
+        tft.drawCircle(40,170,40,TFT_DARKGREY);
+      }
+    }
 }
