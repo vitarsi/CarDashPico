@@ -164,7 +164,7 @@ void loop() {
   mpu6050.update();
   
   if(millis() - timer1 > 10) {
-    tft.fillCircle(40+(gY-gYOff)*20,170-(gZ-gZOff)*20,3,TFT_BLACK);
+    tft.fillCircle(40+(gY-gYOff)*40,170-(gZ-gZOff)*40,3,TFT_BLACK);
     tft.drawCircle(40,170,10,TFT_DARKGREY);
     tft.drawCircle(40,170,25,TFT_DARKGREY);
     tft.drawCircle(40,170,40,TFT_DARKGREY);
@@ -174,7 +174,7 @@ void loop() {
     gX = mpu6050.getAccX()-1; // offsetting for vertical g
     gY = mpu6050.getAccY();
     gZ = mpu6050.getAccZ();
-    tft.fillCircle(40+(gY-gYOff)*20,170-(gZ-gZOff)*20,3,TFT_RED);
+    tft.fillCircle(40+(gY-gYOff)*40,170-(gZ-gZOff)*40,3,TFT_RED);
 
     for(int i=0; i<SAMPLES-2; i++) {
       // draw over previous lines
@@ -220,7 +220,7 @@ void loop() {
       if (histZ[1]-(gZOff)<0 && histZ[20]-(gZOff)<0 && histZ[40]-(gZOff)<0 && histZ[60]-(gZOff)<0) {gZOff-=0.1; redraw=true;}
       if (histZ[1]-(gZOff)>0 && histZ[20]-(gZOff)>0 && histZ[40]-(gZOff)>0 && histZ[60]-(gZOff)>0) {gZOff+=0.1; redraw=true;}
       if (redraw) {
-        tft.fillCircle(40,170,40,TFT_BLACK);
+        tft.fillRect(0,100,220,240,TFT_BLACK);
         tft.drawCircle(40,170,10,TFT_DARKGREY);
         tft.drawCircle(40,170,25,TFT_DARKGREY);
         tft.drawCircle(40,170,40,TFT_DARKGREY);
